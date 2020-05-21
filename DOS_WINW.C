@@ -2,7 +2,9 @@
 //#define ZeroPage 0
 //#define ZeroPage 6
 
-
+//21.05.2020 YN -----\\//-----
+long int tm_md=0;
+//21.05.2020 YN -----//\\-----
 
 /*
             s_DGM[nn].Temp     = (float)(ltmp3) * 0.1;
@@ -1680,9 +1682,12 @@ m_m8:
          SetDisplayPage(EmptPage);
          f_clr_scr_MMI();
 
-      MmiGotoxy(0,3);   MmiPrintf("   VER %s",sw_ver);
+      MmiGotoxy(0,0);   MmiPrintf("   VER %s",sw_ver);
+      MmiGotoxy(0,2);   MmiPrintf("   MD5 counting ...");
       MmiGotoxy(0,6);   MmiPuts(" ESC   - возврат в меню");
-         sw_mmi=27;
+         //sw_mmi=27;
+         tm_md=TimeStamp;
+         sw_mmi=271;
          break;
        }
        break;
@@ -1729,6 +1734,17 @@ m_m8:
 
  /*========================================*/
 
+    case 271:/* ожидание нажатия ESC,Enter */
+         if((key==ESC)||(key==ENTER)  )
+         {
+           goto m0_f1;
+         }
+         if( (f_timer(tm_md,(long int)1000 )) | fl_md_fst )
+         {
+           f_md5(1);
+           sw_mmi=27;
+         }
+         break;
 
  /*========================================*/
     case 140: // 2  Просмотр журнала событий
