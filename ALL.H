@@ -14,11 +14,19 @@
 
 #include "device.h"
 
+//22.05.2020 YN --\\//--
+#if defined(MMI_ICP)
+#include "mmi.h"
+#endif
+#if defined(MMI_NEW)
+#include "mmi_new.h"
+#endif
+//22.05.2020 YN --//\\--
+
 #include "PROC.h"
 
 #include "queue.h"
 #include "icp.h"
-#include "mmi.h"
 #include "host.h"
 #include "i7060.h"
 #include "eee.h"

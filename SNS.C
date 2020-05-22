@@ -52,6 +52,8 @@ int  ComProt[5]={0,0,0,0,0};
 
 long int baudrate_val[]={1200,1200,1200,1200,2400,4800,9600,19200,38400,57600,115200};
 
+int  MMI_inp_err=0;
+int  MMI_out_err=0;
 //------------------------
 int f_get_nb( long int baud)
 {
@@ -728,7 +730,6 @@ printf("\n\rExit\n\r");
 int last_out[5]={-1,-1,-1,-1,-1};
 long int scom_tim[5]={30,30,30,30,30};
 long int Tm_snd[5]= {0,0,0,0,0};
-unsigned long ToutAns[5]= {200,200,200,200,200};
 
 void ServiceCOM ( int ii)
 /*
@@ -2060,7 +2061,16 @@ void f_store_dt()
 
 // см.  device.h
 
+//22.05.2020 YN --\\//--
+//was: #include "mmi.c" now:
+#if defined(MMI_ICP)
 #include "mmi.c"
+#endif
+#if defined(MMI_NEW)
+#include "MMI_new.c"
+#endif
+//22.05.2020 YN --//\\--
+
 #include "i7060.c"
 #include "icp.c"
 #include "queue.c"

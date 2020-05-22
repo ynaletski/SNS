@@ -1,5 +1,11 @@
 {
     "files.associations": {
-        "Dos_win.C": "cpp"
+        "Dos_win.C": "cpp",
+        "SNS.C": "cpp",
+        "DOS_WINW.C": "cpp",
+        "MMI.C": "cpp",
+        "MD5C.C": "cpp",
+        "AGZS.C": "cpp",
+        "mmi_new.C": "cpp"
     }
 }

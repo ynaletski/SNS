@@ -1,19 +1,26 @@
 
-int  MMI_inp_err=0;
-int  MMI_out_err=0;
-int  ZeroPage=9;
-int  EmptPage=0;
+// ZP 2 2
 
-unsigned long ToutAns[5]= {200,200,200,200,200};
-/* ================================================== */
-char ScrBuf[9][31];   /* я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜уемя┐╜я┐╜ я┐╜я┐╜я┐╜ченя┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜раня┐╜ */
-char ScrBuf_c[9][31]; /* я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜яния┐╜ я┐╜я┐╜раня┐╜ */
+#define  Scr_b_sz   (48)
+#define  Scr_bg_sz  (16)
 
-/* табя┐╜я┐╜я┐╜ я┐╜я┐╜рекя┐╜я┐╜я┐╜ровя┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜  MMI */
+char ScrBuf[48][31];   /* модифицируемое значение буфера экрана */
+char ScrBuf_c[48][31]; /* копия состояния экрана */
+char mn_fnt='S';
+
+struct zone_fnt Zone_par[Scr_b_sz-Scr_bg_sz]; // 32
+
+// 0 ...15 - зона экранного буфера фонта DOS с псевдографикой
+// 16...47 - зона индикации параметров, т.е.
+//           зона вывода произвольного фонта, параметры вывода каждой строки
+//           зоны задаются после смены страницы, указывается начальная позиция,
+//           длина и фонт,  функция SetZone(int zone,int x,int y,int lgth,int font);
+
+/* таблица перекодировки клавиш клавиатуры  MMI */
 int mmikeycode[]={
 
-//  я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜    я┐╜я┐╜я┐╜ я┐╜я┐╜      я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜
-//  я┐╜я┐╜ MmiGetch()     MMI     я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜
+//  код вводимый    код из      клавиша
+//  по MmiGetch()     MMI     клавиатуры
 
      ' '  ,       /*   0         ----        */
      '9'  ,       /*   1           9         */
@@ -35,19 +42,19 @@ int mmikeycode[]={
      ' '  ,       /*   10        -----       */
      '-'  ,       /*   11          -         */
      ' '  ,       /*   12       Shif_Enter   */
-     'l'  ,       /*   13      я┐╜я┐╜реля┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜  */
+     'l'  ,       /*   13      стрелка вниз  */
      'W'  ,       /*   14        Shif_F1     */
      'E'  ,       /*   15        Shif_F2     */
      'q'  ,       /*   16        Shif_ESC    */
      'R'  ,       /*   17        Shif_F3     */
      '+'  ,       /*   18          +         */
-     '<'  ,       /*   19    я┐╜я┐╜реля┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜   */
-     '>'  ,       /*   1A    я┐╜я┐╜реля┐╜я┐╜ я┐╜я┐╜равя┐╜  */
-     '.'  ,       /*   1B          . (я┐╜чка) */
+     '<'  ,       /*   19    стрелка влево   */
+     '>'  ,       /*   1A    стрелка вправо  */
+     '.'  ,       /*   1B          . (точка) */
      '*'  ,       /*   1C          *         */
      '/'  ,       /*   1D          /         */
      '\b' ,       /*   1E         DEL        */
-     '!'  ,       /*   1F     я┐╜я┐╜реля┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜  */
+     '!'  ,       /*   1F     стрелка вверх  */
 
      ' '  ,       /*   20         -----      */
      '9'  ,       /*   21         -----      */
@@ -91,22 +98,32 @@ int mmi_sw=0;
 int fl_mmi_new=1;
 int fl_mmi_new1=0;
 
-int page_MMI=6;      /* я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜уемя┐╜я┐╜ я┐╜я┐╜я┐╜ченя┐╜я┐╜ я┐╜я┐╜раня┐╜я┐╜я┐╜ MMI */
-int page_MMI_c=-1;   /* я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜яния┐╜ я┐╜я┐╜раня┐╜я┐╜я┐╜ MMI  */
+int page_MMI=6;      /* модифицируемое значение страницы MMI */
+int page_MMI_c=-1;   /* копия состояния страницы MMI  */
+
+
+long int nm_stamp=0,nm_time=700;
 
 void f_MMI(void)
 {
-/*  я┐╜тображя┐╜я┐╜я┐╜ я┐╜я┐╜раня┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜
- я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜ я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜.
- я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜. MmiKbhit(),MmiGetch().
+/*  отображает экранный буфер
+ и вводит в буфер клавиатуры нажатые на клавиатуре клавиши.
+ Анализ клавиш см. MmiKbhit(),MmiGetch().
 */
- char *buf,*buf_c;
+// char *buf,*buf_c;
+ char *buf_c;
+ char buf[32];
+ long int ltmpZ;
+
  if( fn_MMI != MMI_KBD) goto m2;
 
  if(page_MMI != page_MMI_c)
   {
-   f_clr_scr_c_MMI(); // я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜робя┐╜я┐╜я┐╜я┐╜я┐╜
-                      // я┐╜.я┐╜. факя┐╜я┐╜скоя┐╜ я┐╜я┐╜я┐╜яния┐╜ я┐╜я┐╜раня┐╜ я┐╜я┐╜сле смея┐╜я┐╜ я┐╜я┐╜раня┐╜я┐╜я┐╜
+   f_clr_scr_c_MMI(); // заполнение буфера копии пробелами
+                      // т.е. фактическое состояние экрана после смены страницы
+// f_clr_scr_MMI()  ; // очистка буфера экрана
+
+
 //printf("\r\n MMI page %d",page_MMI);
     fn_MMI=MMI_PG;
     page_MMI_c=page_MMI;
@@ -117,7 +134,7 @@ void f_MMI(void)
 
  if((fl_mmi_new != 0) && (fl_mmi_new1==0) )
  {
- /* я┐╜я┐╜я┐╜я┐╜ я┐╜ я┐╜тобразя┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜  я┐╜ самя┐╜я┐╜я┐╜ я┐╜я┐╜чаля┐╜ я┐╜я┐╜я┐╜я┐╜ */
+ /* найти и отобразить изменения  с самого начала буфера */
    fl_mmi_new1=1;
    fl_mmi_new=0;
    mmix=0;
@@ -129,40 +146,70 @@ void f_MMI(void)
  switch(mmi_sw)
  {
  /*-------------------------*/
- // я┐╜равя┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜раня┐╜ я┐╜ я┐╜ывоя┐╜ я┐╜ MMI я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜чии я┐╜я┐╜хожя┐╜я┐╜я┐╜я┐╜я┐╜
+ // Сравнение буфера экрана и вывод в MMI при наличии расхождений
 
   case 0:
 mm1:
+
    mmix=0;
-   buf=&ScrBuf[mmiy][0];
-   buf_c=&ScrBuf_c[mmiy][0];
    mmi_sw=1;
-   if( _fmemcmp( buf, buf_c , 15) != 0)
-   { //  я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ разя┐╜я┐╜я┐╜я┐╜
+
+   if(mmiy < Scr_bg_sz)
+   {  // проверка зоны основного экрана
+      _fmemcpy(buf,&ScrBuf[mmiy][0],(long int)15);
+
+     buf_c=&ScrBuf_c[mmiy][0];
+     if( _fmemcmp( buf, buf_c , 15) != 0)
+     { //  найдены различия
 
 mm_out:
-    _fmemcpy(buf_c,buf,(long int)15);
-    _fmemcpy(MMI_str,buf,(long int)15);
-    MMI_str[15]=0;
-    fn_MMI=MMI_ST;
-    break;
+      _fmemcpy(buf_c,buf,(long int)15);
+      _fmemcpy(MMI_str,buf,(long int)15);
+      MMI_str[15]=0;
+      fn_MMI=MMI_ST;
+      break;
+     }
+
+   }
+   else
+   { // проверка зоны индикации параметров
+    ltmpZ=Zone_par[mmiy-Scr_bg_sz].lgth;
+    if( ltmpZ > 0)
+    {
+        _fmemcpy(buf,&ScrBuf[mmiy][0],ltmpZ);
+
+       buf_c=&ScrBuf_c[mmiy][0];
+       if( _fmemcmp( buf, buf_c , ltmpZ) != 0)
+       { //  найдены различия
+
+        _fmemcpy(buf_c,buf,ltmpZ);
+        _fmemcpy(MMI_str,buf,ltmpZ);
+        MMI_str[ltmpZ]=0;
+        fn_MMI=MMI_ST;
+        break;
+       }
+    }
    }
   /*----------------------------*/
   case 1:
+    if(mmiy < Scr_bg_sz)
+    { // проверка второй половины строки
+       mmix=15;
 
-   mmix=15;
-   buf=&ScrBuf[mmiy][15];
-   buf_c=&ScrBuf_c[mmiy][15];
+       _fmemcpy(buf,&ScrBuf[mmiy][15],(long int)15);
 
-   if( _fmemcmp( buf, buf_c , 15) != 0)
-   { //  я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ разя┐╜я┐╜я┐╜я┐╜
-    mmix=15;
-    mmi_sw=2;
-    goto mm_out;
-   }
+       buf_c=&ScrBuf_c[mmiy][15];
+
+       if( _fmemcmp( buf, buf_c , 15) != 0)
+       { //  найдены различия
+        mmix=15;
+        mmi_sw=2;
+        goto mm_out;
+       }
+    }
  /*-------------------------*/
   case 2:
-    if(++mmiy > 7)
+    if(++mmiy >= Scr_b_sz)   // -- 7 -- 14 --
     {
      fl_mmi_new1=0;
      mmiy=0;  mmix=0;
@@ -180,30 +227,88 @@ mm_out:
 /*=====================*/
 /* ================================================== */
 void f_clr_scr_MMI()
-{  // я┐╜я┐╜я┐╜тка я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜раня┐╜
-  _fmemset( ScrBuf[0],' ',sizeof(ScrBuf)); // я┐╜я┐╜я┐╜тка я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜раня┐╜
-//_fmemset( ScrBuf[0],' ',248); // я┐╜я┐╜я┐╜тка я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜раня┐╜
+{  // очистка буфера экрана
+  _fmemset( ScrBuf[0],' ',sizeof(ScrBuf));  // очистка буфера экрана
+  _fmemset( Zone_par,0,sizeof(Zone_par)); // очистка параметров вывода
    fl_mmi_new=1;
+   SetMFont(WIN8);
 }
 /* ================================================== */
 void f_clr_scr_c_MMI()
-{  // я┐╜я┐╜я┐╜тка я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜раня┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜
-   // я┐╜ MMI я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜редя┐╜я┐╜я┐╜ я┐╜я┐╜рокя┐╜ я┐╜тлия┐╜я┐╜ я┐╜я┐╜ я┐╜робя┐╜я┐╜я┐╜я┐╜
+{  // очистка копии экранного буфера
+   // в MMI будут переданы строки отличные от пробелов
   _fmemset( ScrBuf_c[0],' ',sizeof(ScrBuf));
    fl_mmi_new=1;
 }
 /* ================================================== */
 void f_rev_scr_MMI()
-{  // я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜раня┐╜ (я┐╜я┐╜сле смея┐╜я┐╜ я┐╜я┐╜раня┐╜я┐╜я┐╜,я┐╜я┐╜я┐╜римя┐╜я┐╜)
-   // я┐╜я┐╜ывая┐╜я┐╜ я┐╜я┐╜редя┐╜я┐╜я┐╜ я┐╜сегя┐╜ я┐╜я┐╜раня┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜ я┐╜ MMI
-  _fmemset( ScrBuf_c[0],1,sizeof(ScrBuf)); // я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜споя┐╜уемя┐╜ я┐╜я┐╜я┐╜ченя┐╜я┐╜я┐╜
+{  // обновление экрана (после смены страницы,например)
+   // вызывает передачу всего экранного буфера в MMI
+  _fmemset( ScrBuf_c[0],1,sizeof(ScrBuf)); // заполнение буфера копии неиспользуемым значением
    fl_mmi_new=1;
+}
+/* ================================================== */
+char font_arr[4]={'P','S','B','L'};
+void SetZone(int zone,int x,int y,int lgth,int font)
+{
+// zone 0...31
+// x    0...29
+// y    0...127
+// lgth 1...30
+// font 0...3
+//        0 -  8x8  DOS, псевдографика
+//        1 -  8x8  Windows
+//        2 - 12x12 Windows
+//        3 - 16x16 Windows, цифры
+
+
+  struct zone_fnt *fnt_ptr;
+
+  if(zone<0) zone=0;
+  else if( zone >= (Scr_b_sz-Scr_bg_sz ) ) zone=Scr_b_sz-Scr_bg_sz-1;
+
+  if(y<0) y=0;
+  else if( y > 127) y= 127;
+
+  if(x<0) x=0;
+  else if( x > 29) x=29;
+
+  fnt_ptr = &Zone_par[zone];
+  fnt_ptr->xx=x;
+  fnt_ptr->yy=y;
+  if((font>=0) && (font<=3) )
+     fnt_ptr->font=font_arr[font];
+  else
+     fnt_ptr->font='S';
+
+  if(lgth<0) lgth=0;
+  else if(lgth>30) lgth=30;
+
+  fnt_ptr->lgth=lgth;
+
+}
+/* ================================================== */
+void SetMFont(int font)
+{
+ mn_fnt=font_arr[font];
 }
 /* ================================================== */
 int x_mmi=0,y_mmi=0;
 void MoveToXY(int x,int y)
 {
  x_mmi=x;y_mmi=y;
+}
+/* ================================================== */
+void Z_MvToX(int zone,int x)
+{
+ x_mmi=x;y_mmi=zone+Scr_bg_sz;
+}
+/* ================================================== */
+void Z_Gotox(int zone,int x)
+{
+  x_mmi=x;
+  y_mmi=zone+Scr_bg_sz;
+  MmiShowCursor();
 }
 /* ================================================== */
 int mmix=0,mmiy=0;
@@ -241,6 +346,7 @@ long int itmp;
    itmp=30 -x_mmi;
    if(i<itmp) itmp=i;
 //printf("\n  MmiPuts( %s )",str);
+  if(itmp != 0)
    _fmemcpy(&ScrBuf[y_mmi][x_mmi],str, itmp);
    x_mmi+=itmp;
    fl_mmi_new=1;
@@ -273,8 +379,8 @@ struct s_icp_dev MMI=
 // device 1
 1,                // status
 1,                // port
-00,               // addr
-"MMIFCT",         // name[8]
+01,               // addr
+"MMIFT",         // name[8]
 06,               // baudrate_cod
 0xd,              // type
 0x40,             // format
@@ -294,46 +400,48 @@ PoolKbd_MMI,      // pool_time
 };
 //-------------------------------
 struct COM_rqst MMI_Rqst={
-0,                     //  я┐╜я┐╜я┐╜яния┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜
+0,                     //  состояние запроса
 ffgets_com_ICP,        //  gets_com(int ii);
 f_MMI_SetAns,          //  answ_com(int ii);
 f_MMI_Flt,             //  answ_flt(int ii);
 "MMI",                 //  name[10]
 0,                     //  n_dev
 &MMI,                  //  *ICP_dd
-0,                     //  текя┐╜я┐╜я┐╜ я┐╜ункя┐╜я┐╜
-ToutAns_MMI,           //  timeout я┐╜твея┐╜
+0,                     //  текущая функция
+ToutAns_MMI,           //  timeout ответа
 0,                     //  time_stamp
 0,                     //  com_lgth
 1,                     //  CRC_flag
 ""                     //  com[]
 };
 /*----------------------------*/
-// я┐╜я┐╜я┐╜я┐╜чиня┐╜ тайя┐╜я┐╜я┐╜я┐╜ я┐╜ я┐╜я┐╜ я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜ченя┐╜я┐╜ я┐╜твея┐╜ я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜ывея┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜ я┐╜я┐╜я┐╜я┐╜
+// величина таймаута в мс для получения ответа на команду выведенную в порт
+unsigned long ToutAns[5]= {200,200,200,200,200};
 unsigned int flag_fn=0;
 int cnt_flt_MMI=0;
 void SendToMMI()
 /*
- я┐╜ункя┐╜я┐╜ я┐╜ я┐╜я┐╜я┐╜рвая┐╜я┐╜я┐╜ PoolKbd_MMI шлея┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜теня┐╜я┐╜  я┐╜я┐╜я┐╜яния┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ (fn_MMI==1).
- я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜чии я┐╜я┐╜я┐╜я┐╜я┐╜, я┐╜я┐╜таня┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜ребуемя┐╜я┐╜ я┐╜я┐╜раня┐╜я┐╜я┐╜ я┐╜я┐╜спля┐╜я┐╜ 'page' (fn_MMI==2)
- я┐╜я┐╜я┐╜ я┐╜ывоя┐╜я┐╜я┐╜ симя┐╜я┐╜я┐╜(я┐╜) я┐╜я┐╜ я┐╜я┐╜рокя┐╜  MMI_str я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜  mmiy, mmix (fn_MMI==3).
+ Функция с интервалом PoolKbd_MMI шлет команды чтения  состояния клавиатуры (fn_MMI==1).
+ При наличии запроса, устанавливает требуемую страницу дисплея 'page' (fn_MMI==2)
+ или выводит символ(ы) из строки  MMI_str в позицию  mmiy, mmix (fn_MMI==3).
 */
 {
   int itmp;
   unsigned char Cmd[n_buf_queue];
+  struct zone_fnt *fnt_ptr;
 
   if( ((fn_MMI==MMI_PG )|| (fn_MMI==MMI_ST) ||
     f_timer(MMI.time_stamp_pool,MMI.pool_time)  )
      &&  f_queue_chk(MMI.port)  )
   {
- // я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜ я┐╜ывоя┐╜я┐╜я┐╜я┐╜ я┐╜ я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜ я┐╜ я┐╜я┐╜редя┐╜ я┐╜я┐╜я┐╜я┐╜сов
+ // есть что выводить и есть место в очереди запросов
 
       if(MMI_Rqst.status == Req_Flt)
       {
-      // я┐╜редя┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜ылкя┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜шиля┐╜я┐╜я┐╜ я┐╜ сбоя┐╜я┐╜,
-      // я┐╜я┐╜я┐╜я┐╜ я┐╜ я┐╜я┐╜редя┐╜ я┐╜я┐╜я┐╜я┐╜упа я┐╜ COM я┐╜ я┐╜я┐╜я┐╜я┐╜ром я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜
-      // я┐╜я┐╜тавшейя┐╜я┐╜ я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ MMI_Rqst, я┐╜сли я┐╜я┐╜ я┐╜ыла
-      // я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜таня┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜раня┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜ылкя┐╜ симя┐╜я┐╜я┐╜я┐╜(я┐╜я┐╜)
+      // предыдущая посылка завершилась со сбоем,
+      // стать в очередь доступа к COM с повтором команды
+      // оставшейся в структуре MMI_Rqst, если это была
+      // команда установки страницы или посылки символа(ов)
          if( MMI_Rqst.function == MMI_KBD )
          {
 
@@ -341,7 +449,7 @@ void SendToMMI()
            goto m_new_send;
          }
          if( cnt_flt_MMI++ < 4)
-         { // я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜ сбоя┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜
+         { // трехкратный повтор сбойной команды
             MMI_Rqst.time_stamp=TimeStamp;
             MMI.n_transaction++;
             f_queue_put(MMI.port, &MMI_Rqst);
@@ -374,12 +482,12 @@ m_new_send:
     }
     else fn_MMI=MMI_KBD;
     flag_fn=0;
-              /* я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜*/
+              /* опрос клавиатуры*/
      sprintf(Cmd,"$%02XK",MMI.addr);
      MMI_Rqst.answ_com=f_MMI_KBD_ans;
      MMI_Rqst.function=MMI_KBD;
      MMI.time_stamp_pool=TimeStamp;
-     LedToggle();  // я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ светодя┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜
+     LedToggle();  // мигание светодиодом на процессоре
      goto m11;
   }
 
@@ -388,7 +496,7 @@ m_sw:
  {
   case MMI_PG:
 
-        /* я┐╜я┐╜таня┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜раня┐╜я┐╜я┐╜ я┐╜я┐╜спля┐╜я┐╜*/
+        /* установка страницы дисплея*/
            sprintf(Cmd,"$%02XP%02X",MMI.addr,page_MMI);
            fn_MMI=MMI_KBD;
            MMI_Rqst.answ_com=f_MMI_SetAns;
@@ -397,8 +505,59 @@ m_sw:
 
   case MMI_ST:
 
-      /* я┐╜ывоя┐╜ я┐╜я┐╜рокя┐╜  MMI_str[] я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜  mmiy, mmix */
-           sprintf(Cmd,"$%02XT%d%02X%s",MMI.addr,mmiy,mmix,MMI_str);
+       if(mmiy < Scr_bg_sz)
+       { // вывод основной страницы
+
+          // S - 8*8,  Windows
+          // B -12*12, Windows
+          // L -16*16, DIGITS
+          // P - 8*16, DOS
+
+          // P - 8*16, DOS
+   //     sprintf(Cmd,"$%02XGP%02X%02X%s",MMI.addr,mmix,mmiy*8,MMI_str);
+
+   //     S - 8*8, WIN
+   //     sprintf(Cmd,"$%02XGS%02X%02X%s",MMI.addr,mmix,mmiy*8,MMI_str);
+
+
+          sprintf(Cmd,"$%02XG%c%02X%02X%s",MMI.addr, mn_fnt,mmix,mmiy*8,MMI_str);
+
+   //     if(flag_prn)
+   //      printf("main:%s\n\r",Cmd);
+
+       }
+       else
+       {
+
+         fnt_ptr = &Zone_par[mmiy-Scr_bg_sz];
+         //  MMI_str[fnt_ptr->lgth]=0;
+         sprintf(Cmd,"$%02XG%c%02X%02X%s",MMI.addr,fnt_ptr->font,fnt_ptr->xx,fnt_ptr->yy,MMI_str);
+
+
+     //   if(flag_prn)
+     //    printf("zone:%s\n\r",Cmd);
+
+       }
+
+      /* вывод строки  MMI_str[] в позицию  mmiy, mmix */
+//         sprintf(Cmd,"$%02XT%d%02X%s",MMI.addr,mmiy,mmix,MMI_str);
+        // S - 8*8, Windows
+        //   sprintf(Cmd,"$%02XGS%02X%02X%s",MMI.addr,mmix,mmiy*8,MMI_str);
+
+          // S - 8*8,  Windows
+          // B -12*12, Windows
+          // L -16*16, DIGITS
+          // P - 8*16, DOS
+
+        // B -12*12, Windows
+        //  sprintf(Cmd,"$%02XGB%02X%02X%s",MMI.addr,mmix,mmiy*12,MMI_str);
+
+        // L -16*16, DIGITS
+        //  sprintf(Cmd,"$%02XGL%02X%02X%s",MMI.addr,mmix,mmiy*16,MMI_str);
+
+        // P - 8*16, DOS
+        //  sprintf(Cmd,"$%02XGP%02X%02X%s",MMI.addr,mmix,mmiy*8,MMI_str);
+
            fn_MMI=MMI_KBD;
            MMI_Rqst.answ_com=f_MMI_SetAns;
            MMI_Rqst.function=MMI_ST;
@@ -421,7 +580,8 @@ m11:
    f_queue_put(MMI.port, &MMI_Rqst);
    return;
 }
-/* ---------------------------------------- */
+/* ================================================== */
+
 void f_mmi_err()
 {
   page_MMI_c=-1;
@@ -429,8 +589,8 @@ void f_mmi_err()
 /* ---------------------------------------- */
 void f_MMI_Flt(int ii)
 {
-// я┐╜роия┐╜я┐╜шел тайя┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜ я┐╜риея┐╜я┐╜ я┐╜твея┐╜.
-// я┐╜я┐╜я┐╜тка я┐╜я┐╜редя┐╜ я┐╜ я┐╜я┐╜я┐╜я┐╜тикя┐╜.
+// Произошел таймаут при приеме ответа.
+// Очистка очереди и статистика.
  MMI.time_stamp_rcv=0;
  MMI.n_timeout_error++;
  /*
@@ -448,9 +608,9 @@ void f_MMI_Flt(int ii)
 /* ---------------------------------------- */
 void f_MMI_SetAns(int ii)
 {
- // я┐╜я┐╜рабя┐╜тка я┐╜твея┐╜ я┐╜я┐╜ MMI я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜раня┐╜я┐╜я┐╜
- // я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜ симя┐╜я┐╜я┐╜я┐╜(я┐╜я┐╜).я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜твия┐╜ я┐╜я┐╜ я┐╜ребя┐╜я┐╜я┐╜я┐╜.
- // я┐╜своя┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜редя┐╜ я┐╜ я┐╜я┐╜я┐╜я┐╜тикя┐╜ резя┐╜я┐╜я┐╜я┐╜.
+ // Обработка ответа от MMI на команды изменения страницы
+ // и записи символа(ов).Никаких действий не требуется.
+ // Освобождение очереди и статистика результата.
 
  if(cb_COM[ii][0]=='!')
    {
@@ -480,16 +640,16 @@ int mmi_key_in=0,mmi_key_out=0;
 
 void f_MMI_KBD_ans(int ii)
 {
-/* я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜чии я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜, я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜ я┐╜я┐╜я┐╜я┐╜цевя┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜  mmikey[]
-   mmi_key_out - укая┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜ я┐╜я┐╜ я┐╜споя┐╜ьзоя┐╜я┐╜я┐╜я┐╜я┐╜ симя┐╜я┐╜я┐╜
-   mmi_key_in  - укая┐╜ывая┐╜я┐╜ я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜чейя┐╜я┐╜ я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜ симя┐╜я┐╜я┐╜я┐╜
-   mmi_key_out==mmi_key_in - я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜
+/* при наличии нажатых клавиш, вводит коды клавиш в кольцевой буфер  mmikey[]
+   mmi_key_out - указавает на не использованный символ
+   mmi_key_in  - указывает на пустую ячейку для ввода символа
+   mmi_key_out==mmi_key_in - буфер пуст
 */
 
  char *Result;
  int j,key,nextidx;
-  Result=cb_COM[ii];        // я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜
-//  count=n_bcom[ii];  // я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜
+  Result=cb_COM[ii];        // команда
+//  count=n_bcom[ii];  // длина команды
 
  if(MMI.CRC_flag==0) goto m1;
  if(f_check_crc_ICP(Result))
@@ -509,7 +669,7 @@ m1:
             mmikey[mmi_key_in]=key;
             mmi_key_in=nextidx;
           }
-          else  break;   // я┐╜я┐╜репя┐╜я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜
+          else  break;   // переполнение буфера
           j+=2;
       }
       MMI.n_success++;
@@ -532,29 +692,29 @@ m_err:
  }
  f_queue_free(ii,&MMI_Rqst);
 }
-/*-----------------------------------------*/
+/* ---------------------------------------- */
 int sw_fst=0;
-char fst_str[20];
+char fst_str[31];
 int  fst_n=1;
 int  fst_in_n=0;
 int fst_beg;
 char str_tmp[40];
 
 int fstin()
-/* я┐╜ывоя┐╜я┐╜я┐╜ содя┐╜ржия┐╜я┐╜я┐╜ я┐╜я┐╜рокя┐╜ fst_str  я┐╜я┐╜ я┐╜я┐╜ран MMI  я┐╜ редя┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜ ,
-   резя┐╜я┐╜я┐╜я┐╜ я┐╜ той я┐╜я┐╜ я┐╜я┐╜рокя┐╜.
+/* выводит содержимое строки fst_str  на экран MMI  и редактирует ее ,
+   результат в той же строке.
 
-   fst_str - я┐╜я┐╜рокя┐╜;
-   fst_n я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜ редя┐╜я┐╜я┐╜ровя┐╜я┐╜я┐╜я┐╜.
+   fst_str - строка;
+   fst_n длина поля редактирования.
 
-   я┐╜римя┐╜я┐╜ я┐╜споя┐╜ьзоя┐╜я┐╜я┐╜я┐╜я┐╜ :
+   пример использования :
 
      sprintf( fst_str,"%f",num_float);
      fst_n=4;
      sw_fst=1;
      MmiGotoxy(4,6);
 
-    я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜шен , я┐╜сли sw_fst==10;
+    ввод завершен , если sw_fst==10;
 */
 {
  int i,itmp,itmp1;
@@ -563,12 +723,12 @@ int fstin()
  switch(sw_fst)
  {
  case 0: break;
- case fst_OK: break;    //  я┐╜я┐╜я┐╜я┐╜я┐╜ 'Enter' - я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜шен
- case fst_ESC: break;  // я┐╜я┐╜я┐╜я┐╜я┐╜ 'ESC' - я┐╜я┐╜ход я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜я┐╜я┐╜
+ case fst_OK: break;    //  нажат 'Enter' - ввод данных завершен
+ case fst_ESC: break;  // нажата 'ESC' - выход без ввода данных
  case 1:
  m1:
   fst_in_n=0;
-  if ( fst_str[0] )
+//if ( fst_str[0] )
       {
         strcpy(str_tmp,fst_str);
         fst_beg=x_mmi;
@@ -594,7 +754,7 @@ int fstin()
     break;
    }
 
- /* я┐╜я┐╜раня┐╜я┐╜ я┐╜я┐╜ я┐╜я┐╜я┐╜я┐╜ я┐╜я┐╜рокя┐╜ */
+ /* стирание до конца строки */
 
      itmp=strlen(fst_str);
      if(itmp<fst_n) itmp=fst_n;
@@ -770,5 +930,46 @@ double dtmp;
   }
 }
 /*================================================================*/
+/*
+//-------------------
+
+char BufferPrintf[128];
+int  printfM(char *format , ...)
+{
+  va_list marker;
+  va_start( marker, format);
+  vsprintf(BufferPrintf, format, marker);
+  puts(BufferPrintf);
+  return (strlen(BufferPrintf));
+}
+//-------------------
+
+*/
+
+void f_tbl_1()
+{
+
+/*
+  MmiGotoxy(0,0);  MmiPrintf("┌─────────┬────────┬─────────┐");//  0
+  MmiGotoxy(0,1);  MmiPrintf("│         │        │         │");//  1
+  MmiGotoxy(0,2);  MmiPrintf("├─────────┼────────┼─────────┤");//  2
+  MmiGotoxy(0,3);  MmiPrintf("│         │        │         │");//  3
+  MmiGotoxy(0,4);  MmiPrintf("│         │        │         │");//  4
+  MmiGotoxy(0,5);  MmiPrintf("├─────────┼────────┼─────────┤");//  5
+  MmiGotoxy(0,6);  MmiPrintf("│         │        │         │");//  6
+  MmiGotoxy(0,7);  MmiPrintf("│         │        │         │");//  7
+  MmiGotoxy(0,8);  MmiPrintf("├─────────┼────────┼─────────┤");//  8
+  MmiGotoxy(0,9 ); MmiPrintf("│         │        │         │");//  9
+  MmiGotoxy(0,10); MmiPrintf("│         │        │         │");// 10
+  MmiGotoxy(0,11); MmiPrintf("├─────────┼────────┼─────────┤");// 11
+  MmiGotoxy(0,12); MmiPrintf("│         │        │         │");// 12
+  MmiGotoxy(0,13); MmiPrintf("│         │        │         │");// 13
+  MmiGotoxy(0,14); MmiPrintf("│         │        │         │");// 14
+  MmiGotoxy(0,15); MmiPrintf("└─────────┴────────┴─────────┘");// 15
+
+*/
+
+}
+
 
 
